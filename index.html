@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Amazon Price Checker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0a0a0a;
+      --surface: #111111;
+      --border: #1f1f1f;
+      --accent: #ff9900;
+      --accent-dim: rgba(255,153,0,0.12);
+      --text: #f0ede8;
+      --muted: #555;
+      --success: #2dce7a;
+      --error: #ff4d4d;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem;
+      overflow-x: hidden;
+    }
+
+    /* Background grid */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,153,0,0.03) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,153,0,0.03) 1px, transparent 1px);
+      background-size: 48px 48px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .container {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 640px;
+    }
+
+    /* Header */
+    .header {
+      margin-bottom: 3rem;
+      animation: fadeDown 0.6s ease both;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .logo-icon {
+      width: 32px;
+      height: 32px;
+      background: var(--accent);
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+    }
+
+    h1 {
+      font-family: 'Syne', sans-serif;
+      font-size: clamp(1.6rem, 4vw, 2.2rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--text);
+    }
+
+    h1 span { color: var(--accent); }
+
+    .subtitle {
+      font-size: 0.75rem;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-top: 0.4rem;
+    }
+
+    /* Input card */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 2rem;
+      animation: fadeUp 0.6s 0.15s ease both;
+    }
+
+    .input-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-bottom: 1.2rem;
+    }
+
+    label {
+      font-size: 0.7rem;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    input[type="text"] {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+      color: var(--text);
+      font-family: 'DM Mono', monospace;
+      font-size: 0.85rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    input[type="text"]:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+
+    input[type="text"]::placeholder { color: var(--muted); }
+
+    button {
+      width: 100%;
+      background: var(--accent);
+      color: #000;
+      border: none;
+      border-radius: 10px;
+      padding: 0.9rem;
+      font-family: 'Syne', sans-serif;
+      font-weight: 700;
+      font-size: 0.9rem;
+      letter-spacing: 0.03em;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.15s;
+    }
+
+    button:hover { opacity: 0.88; transform: translateY(-1px); }
+    button:active { transform: translateY(0); }
+    button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+    /* Result */
+    .result {
+      margin-top: 1.5rem;
+      display: none;
+      animation: fadeUp 0.4s ease both;
+    }
+
+    .result.show { display: block; }
+
+    .product-card {
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      display: flex;
+      gap: 1.2rem;
+      align-items: flex-start;
+    }
+
+    .product-img {
+      width: 90px;
+      height: 90px;
+      object-fit: contain;
+      border-radius: 8px;
+      background: #1a1a1a;
+      flex-shrink: 0;
+    }
+
+    .product-info { flex: 1; min-width: 0; }
+
+    .product-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 700;
+      line-height: 1.4;
+      margin-bottom: 0.8rem;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .price-row {
+      display: flex;
+      align-items: baseline;
+      gap: 0.5rem;
+    }
+
+    .price {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--accent);
+    }
+
+    .price-currency {
+      font-size: 0.95rem;
+      color: var(--muted);
+    }
+
+    .availability {
+      margin-top: 0.4rem;
+      font-size: 0.7rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--success);
+    }
+
+    .availability.unavailable { color: var(--error); }
+
+    .asin-badge {
+      display: inline-block;
+      margin-top: 0.8rem;
+      background: var(--border);
+      border-radius: 4px;
+      padding: 0.2rem 0.5rem;
+      font-size: 0.65rem;
+      letter-spacing: 0.06em;
+      color: var(--muted);
+    }
+
+    /* Error */
+    .error-msg {
+      margin-top: 1rem;
+      background: rgba(255,77,77,0.08);
+      border: 1px solid rgba(255,77,77,0.2);
+      border-radius: 10px;
+      padding: 1rem 1.2rem;
+      font-size: 0.8rem;
+      color: var(--error);
+      display: none;
+    }
+
+    .error-msg.show { display: block; }
+
+    /* Spinner */
+    .spinner {
+      display: none;
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(0,0,0,0.3);
+      border-top-color: #000;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      margin: 0 auto;
+    }
+
+    .spinner.show { display: inline-block; }
+
+    .btn-content { display: flex; align-items: center; justify-content: center; gap: 0.6rem; }
+
+    /* Info note */
+    .note {
+      margin-top: 1.5rem;
+      font-size: 0.7rem;
+      color: var(--muted);
+      text-align: center;
+      line-height: 1.7;
+      animation: fadeUp 0.6s 0.3s ease both;
+    }
+
+    .note a { color: var(--accent); text-decoration: none; }
+    .note a:hover { text-decoration: underline; }
+
+    @keyframes fadeDown {
+      from { opacity: 0; transform: translateY(-16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(16px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="header">
+    <div class="logo">
+      <div class="logo-icon">📦</div>
+      <h1>Amazon <span>Price</span> Checker</h1>
+    </div>
+    <p class="subtitle">Product Advertising API 5.0</p>
+  </div>
+
+  <div class="card">
+    <div class="input-group">
+      <label for="urlInput">URL o ASIN prodotto Amazon</label>
+      <input
+        type="text"
+        id="urlInput"
+        placeholder="https://www.amazon.it/dp/B08N5WRWNW  oppure  B08N5WRWNW"
+        autocomplete="off"
+        spellcheck="false"
+      />
+    </div>
+
+    <button id="checkBtn" onclick="checkPrice()">
+      <span class="btn-content">
+        <span id="btnText">Controlla Prezzo</span>
+        <span class="spinner" id="spinner"></span>
+      </span>
+    </button>
+
+    <div class="error-msg" id="errorMsg"></div>
+
+    <div class="result" id="result">
+      <div class="product-card">
+        <img class="product-img" id="prodImg" src="" alt="Immagine prodotto" />
+        <div class="product-info">
+          <div class="product-title" id="prodTitle"></div>
+          <div class="price-row">
+            <span class="price" id="prodPrice"></span>
+            <span class="price-currency" id="prodCurrency"></span>
+          </div>
+          <div class="availability" id="prodAvail"></div>
+          <div class="asin-badge" id="prodAsin"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="note">
+    Richiede un backend <strong>server.js</strong> in esecuzione su <code>localhost:3000</code><br>
+    con le tue credenziali Amazon Associates.<br>
+    <a href="https://webservices.amazon.com/paapi5/documentation/" target="_blank">→ Documentazione PA API 5.0</a>
+  </p>
+</div>
+
+<script>
+  // Estrae l'ASIN da un URL Amazon o da una stringa diretta
+  function extractASIN(input) {
+    input = input.trim();
+
+    // ASIN diretto (10 caratteri alfanumerici)
+    if (/^[A-Z0-9]{10}$/.test(input)) return input;
+
+    // Da URL /dp/ASIN o /gp/product/ASIN
+    const match = input.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
+    if (match) return match[1].toUpperCase();
+
+    return null;
+  }
+
+  async function checkPrice() {
+    const input = document.getElementById('urlInput').value;
+    const btn   = document.getElementById('checkBtn');
+    const spinner = document.getElementById('spinner');
+    const btnText = document.getElementById('btnText');
+    const errorDiv = document.getElementById('errorMsg');
+    const resultDiv = document.getElementById('result');
+
+    // Reset UI
+    errorDiv.classList.remove('show');
+    resultDiv.classList.remove('show');
+
+    const asin = extractASIN(input);
+    if (!asin) {
+      showError('ASIN non valido. Inserisci un URL Amazon valido oppure un ASIN (es. B08N5WRWNW).');
+      return;
+    }
+
+    // Loading state
+    btn.disabled = true;
+    spinner.classList.add('show');
+    btnText.textContent = 'Ricerca in corso…';
+
+    try {
+      const res = await fetch(`http://localhost:3000/product?asin=${asin}`);
+      const data = await res.json();
+
+      if (!res.ok || data.error) {
+        showError(data.error || 'Errore dal server. Controlla che server.js sia in esecuzione.');
+        return;
+      }
+
+      // Populate card
+      document.getElementById('prodTitle').textContent   = data.title || '—';
+      document.getElementById('prodPrice').textContent   = data.price || 'N/D';
+      document.getElementById('prodCurrency').textContent = data.currency || '';
+      document.getElementById('prodAsin').textContent    = `ASIN: ${asin}`;
+
+      const availEl = document.getElementById('prodAvail');
+      availEl.textContent = data.availability || '';
+      availEl.className = 'availability' + (data.available ? '' : ' unavailable');
+
+      const imgEl = document.getElementById('prodImg');
+      if (data.image) {
+        imgEl.src = data.image;
+        imgEl.style.display = 'block';
+      } else {
+        imgEl.style.display = 'none';
+      }
+
+      resultDiv.classList.add('show');
+
+    } catch (err) {
+      showError('Impossibile connettersi al server. Assicurati che server.js sia avviato su porta 3000.');
+    } finally {
+      btn.disabled = false;
+      spinner.classList.remove('show');
+      btnText.textContent = 'Controlla Prezzo';
+    }
+  }
+
+  function showError(msg) {
+    const el = document.getElementById('errorMsg');
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+
+  // Invio con Enter
+  document.getElementById('urlInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') checkPrice();
+  });
+</script>
+</body>
+</html>
