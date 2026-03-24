@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Amazon Price Checker</title>
+  <title>Amazon Price Checker & Affiliate Link Generator</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Mono:wght@300;400&display=swap" rel="stylesheet">
   <style>
@@ -34,7 +34,6 @@
       overflow-x: hidden;
     }
 
-    /* Background grid */
     body::before {
       content: '';
       position: fixed;
@@ -54,7 +53,6 @@
       max-width: 640px;
     }
 
-    /* Header */
     .header {
       margin-bottom: 3rem;
       animation: fadeDown 0.6s ease both;
@@ -96,7 +94,6 @@
       margin-top: 0.4rem;
     }
 
-    /* Input card */
     .card {
       background: var(--surface);
       border: 1px solid var(--border);
@@ -139,6 +136,13 @@
 
     input[type="text"]::placeholder { color: var(--muted); }
 
+    .button-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.8rem;
+      margin-bottom: 0.8rem;
+    }
+
     button {
       width: 100%;
       background: var(--accent);
@@ -158,7 +162,13 @@
     button:active { transform: translateY(0); }
     button:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
 
-    /* Result */
+    button.secondary {
+      background: var(--border);
+      color: var(--text);
+    }
+
+    button.secondary:hover { background: #2a2a2a; }
+
     .result {
       margin-top: 1.5rem;
       display: none;
@@ -239,7 +249,41 @@
       color: var(--muted);
     }
 
-    /* Error */
+    .affiliate-link-box {
+      margin-top: 1.2rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+    }
+
+    .affiliate-link-box label {
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+
+    .link-display {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.7rem;
+      font-size: 0.75rem;
+      word-break: break-all;
+      color: var(--accent);
+      margin-bottom: 0.6rem;
+    }
+
+    .action-buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.6rem;
+    }
+
+    .action-buttons button {
+      padding: 0.6rem;
+      font-size: 0.8rem;
+    }
+
     .error-msg {
       margin-top: 1rem;
       background: rgba(255,77,77,0.08);
@@ -253,7 +297,6 @@
 
     .error-msg.show { display: block; }
 
-    /* Spinner */
     .spinner {
       display: none;
       width: 18px;
@@ -269,7 +312,6 @@
 
     .btn-content { display: flex; align-items: center; justify-content: center; gap: 0.6rem; }
 
-    /* Info note */
     .note {
       margin-top: 1.5rem;
       font-size: 0.7rem;
@@ -305,27 +347,30 @@
       <div class="logo-icon">📦</div>
       <h1>Amazon <span>Price</span> Checker</h1>
     </div>
-    <p class="subtitle">Product Advertising API 5.0</p>
+    <p class="subtitle">Prezzo + Link Affiliato + Link Corti</p>
   </div>
 
   <div class="card">
     <div class="input-group">
-      <label for="urlInput">URL o ASIN prodotto Amazon</label>
+      <label for="urlInput">URL Amazon (lungo, corto) o ASIN</label>
       <input
         type="text"
         id="urlInput"
-        placeholder="https://www.amazon.it/dp/B08N5WRWNW  oppure  B08N5WRWNW"
+        placeholder="https://amzn.eu/d/abc123 o https://www.amazon.it/dp/B08N5WRWNW o B08N5WRWNW"
         autocomplete="off"
         spellcheck="false"
       />
     </div>
 
-    <button id="checkBtn" onclick="checkPrice()">
-      <span class="btn-content">
-        <span id="btnText">Controlla Prezzo</span>
-        <span class="spinner" id="spinner"></span>
-      </span>
-    </button>
+    <div class="button-group">
+      <button id="checkBtn" onclick="checkPrice()">
+        <span class="btn-content">
+          <span id="btnText">Controlla Prezzo</span>
+          <span class="spinner" id="spinner"></span>
+        </span>
+      </button>
+      <button class="secondary" onclick="showGraph()">Grafico Keepa</button>
+    </div>
 
     <div class="error-msg" id="errorMsg"></div>
 
@@ -342,55 +387,112 @@
           <div class="asin-badge" id="prodAsin"></div>
         </div>
       </div>
+
+      <div class="affiliate-link-box">
+        <label>Link Affiliato Generato</label>
+        <div class="link-display" id="affiliateLink"></div>
+        <div class="action-buttons">
+          <button onclick="copyAffiliateLink()">Copia Link</button>
+          <button class="secondary" onclick="openAffiliateLink()">Apri Link</button>
+        </div>
+      </div>
     </div>
   </div>
 
   <p class="note">
-    Richiede un backend <strong>server.js</strong> in esecuzione su <code>localhost:3000</code><br>
-    con le tue credenziali Amazon Associates.<br>
-    <a href="https://webservices.amazon.com/paapi5/documentation/" target="_blank">→ Documentazione PA API 5.0</a>
+    Supporta link corti Amazon (amzn.eu), link completi e ASIN diretti<br>
+    Backend server.js su <code>localhost:3000</code> con credenziali PA API 5.0<br>
+    <a href="https://webservices.amazon.com/paapi5/documentation/" target="_blank">→ Documentazione API</a>
   </p>
 </div>
 
 <script>
-  // Estrae l'ASIN da un URL Amazon o da una stringa diretta
-  function extractASIN(input) {
+  const REFERRAL_TAG = "pato666-21";
+  let currentAffiliateLink = '';
+
+  function extractASINFromFullLink(url) {
+    const fullLinkPattern = /\/(?:dp|offer-listing|gp\/product)\/([A-Z0-9]{10})(?:\/|\?|$)/i;
+    const match = url.match(fullLinkPattern);
+    return match ? match[1].toUpperCase() : null;
+  }
+
+  async function resolveShortLink(shortCode) {
+    const apiUrl = `https://verificaprezzo.eu/shortlink/${shortCode}`;
+
+    try {
+      const response = await fetch(apiUrl);
+      const data = await response.json();
+
+      if (data.longUrl) {
+        return data.longUrl;
+      }
+      return null;
+    } catch (error) {
+      console.error('Errore risoluzione link corto:', error);
+      return null;
+    }
+  }
+
+  async function extractASIN(input) {
     input = input.trim();
 
-    // ASIN diretto (10 caratteri alfanumerici)
-    if (/^[A-Z0-9]{10}$/.test(input)) return input;
+    if (/^[A-Z0-9]{10}$/i.test(input)) {
+      return input.toUpperCase();
+    }
 
-    // Da URL /dp/ASIN o /gp/product/ASIN
-    const match = input.match(/\/(?:dp|gp\/product)\/([A-Z0-9]{10})/i);
-    if (match) return match[1].toUpperCase();
+    const shortLinkPattern = /https?:\/\/amzn\.eu\/d\/([A-Za-z0-9]+)/i;
+    const shortMatch = input.match(shortLinkPattern);
 
-    return null;
+    if (shortMatch && shortMatch[1]) {
+      const shortCode = shortMatch[1];
+      const longUrl = await resolveShortLink(shortCode);
+
+      if (longUrl) {
+        return extractASINFromFullLink(longUrl);
+      }
+      return null;
+    }
+
+    return extractASINFromFullLink(input);
+  }
+
+  function generateAffiliateLink(asin) {
+    return `https://www.amazon.it/gp/offer-listing/${asin}/?tag=${REFERRAL_TAG}`;
   }
 
   async function checkPrice() {
     const input = document.getElementById('urlInput').value;
-    const btn   = document.getElementById('checkBtn');
+    const btn = document.getElementById('checkBtn');
     const spinner = document.getElementById('spinner');
     const btnText = document.getElementById('btnText');
     const errorDiv = document.getElementById('errorMsg');
     const resultDiv = document.getElementById('result');
 
-    // Reset UI
     errorDiv.classList.remove('show');
     resultDiv.classList.remove('show');
 
-    const asin = extractASIN(input);
-    if (!asin) {
-      showError('ASIN non valido. Inserisci un URL Amazon valido oppure un ASIN (es. B08N5WRWNW).');
+    if (!input.trim()) {
+      showError('Inserisci un URL Amazon o un ASIN');
       return;
     }
 
-    // Loading state
     btn.disabled = true;
     spinner.classList.add('show');
-    btnText.textContent = 'Ricerca in corso…';
+    btnText.textContent = 'Elaborazione...';
 
     try {
+      const asin = await extractASIN(input);
+
+      if (!asin) {
+        showError('ASIN non valido. Controlla il link inserito.');
+        btn.disabled = false;
+        spinner.classList.remove('show');
+        btnText.textContent = 'Controlla Prezzo';
+        return;
+      }
+
+      currentAffiliateLink = generateAffiliateLink(asin);
+
       const res = await fetch(`http://localhost:3000/product?asin=${asin}`);
       const data = await res.json();
 
@@ -399,11 +501,11 @@
         return;
       }
 
-      // Populate card
-      document.getElementById('prodTitle').textContent   = data.title || '—';
-      document.getElementById('prodPrice').textContent   = data.price || 'N/D';
+      document.getElementById('prodTitle').textContent = data.title || '—';
+      document.getElementById('prodPrice').textContent = data.price || 'N/D';
       document.getElementById('prodCurrency').textContent = data.currency || '';
-      document.getElementById('prodAsin').textContent    = `ASIN: ${asin}`;
+      document.getElementById('prodAsin').textContent = `ASIN: ${asin}`;
+      document.getElementById('affiliateLink').textContent = currentAffiliateLink;
 
       const availEl = document.getElementById('prodAvail');
       availEl.textContent = data.availability || '';
@@ -420,11 +522,53 @@
       resultDiv.classList.add('show');
 
     } catch (err) {
-      showError('Impossibile connettersi al server. Assicurati che server.js sia avviato su porta 3000.');
+      console.error('Errore:', err);
+      showError('Impossibile elaborare la richiesta. Verifica la connessione al server.');
     } finally {
       btn.disabled = false;
       spinner.classList.remove('show');
       btnText.textContent = 'Controlla Prezzo';
+    }
+  }
+
+  async function showGraph() {
+    const input = document.getElementById('urlInput').value.trim();
+
+    if (!input) {
+      showError('Inserisci un URL Amazon o un ASIN');
+      return;
+    }
+
+    try {
+      const asin = await extractASIN(input);
+
+      if (asin) {
+        const graphLink = `https://keepa.com/#!product/8-${asin}`;
+        window.open(graphLink, '_blank');
+      } else {
+        showError('ASIN non trovato nel link inserito');
+      }
+    } catch (err) {
+      showError('Errore durante l\'elaborazione del link');
+    }
+  }
+
+  function copyAffiliateLink() {
+    if (!currentAffiliateLink) return;
+
+    navigator.clipboard.writeText(currentAffiliateLink).then(() => {
+      const btn = event.target;
+      const originalText = btn.textContent;
+      btn.textContent = 'Copiato!';
+      setTimeout(() => {
+        btn.textContent = originalText;
+      }, 2000);
+    });
+  }
+
+  function openAffiliateLink() {
+    if (currentAffiliateLink) {
+      window.open(currentAffiliateLink, '_blank');
     }
   }
 
@@ -434,7 +578,6 @@
     el.classList.add('show');
   }
 
-  // Invio con Enter
   document.getElementById('urlInput').addEventListener('keydown', e => {
     if (e.key === 'Enter') checkPrice();
   });
